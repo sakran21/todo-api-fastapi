@@ -31,3 +31,12 @@ def create_todo(todo: Todo):
     }
     Todos.append(new_todo)
     return new_todo
+
+from fastapi import HTTPException
+
+@app.get("/todos/{todo_id}")
+def get_todo(todo_id: int):
+    for todo in Todos:
+        if todo["id"] == todo_id:
+            return todo
+    raise HTTPException(status_code=404, detail="Todo not found")
