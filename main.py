@@ -1,5 +1,8 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
+from fastapi import HTTPException
+from fastapi import status
+
 
 
 class Todo(BaseModel):
@@ -32,11 +35,18 @@ def create_todo(todo: Todo):
     Todos.append(new_todo)
     return new_todo
 
-from fastapi import HTTPException
 
 @app.get("/todos/{todo_id}")
 def get_todo(todo_id: int):
     for todo in Todos:
         if todo["id"] == todo_id:
             return todo
+    raise HTTPException(status_code=404, detail="Todo not found")
+
+@app.delete("/todos/{todo_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_todo(todo_id: int):
+    for i, todo in enumerate(Todos):
+        if todo["id"] == todo_id:
+            Todos.pop(i)
+            return
     raise HTTPException(status_code=404, detail="Todo not found")
