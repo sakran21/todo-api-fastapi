@@ -50,3 +50,16 @@ def delete_todo(todo_id: int):
             Todos.pop(i)
             return
     raise HTTPException(status_code=404, detail="Todo not found")
+
+class Todo(BaseModel):
+    id:int
+    title: str
+    completed: bool
+
+@app.put("/todos/{Todos_id}")
+def update_todo(todo_id: int, updated_todo: Todo):
+    for i, todo in enumerate(Todos):
+        if todo["id"]==todo_id:
+            Todos[i] = updated_todo.dict()    
+            return Todos[i]
+    raise HTTPException(status_code=404,details="Todo not found!")    
