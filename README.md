@@ -1,61 +1,103 @@
-# Task Manager API
+# Task Manager API (FastAPI)
 
-A simple, extensible to-do list API built with Python and FastAPI.
+A lightweight RESTful API built with FastAPI for managing tasks, complete with automated testing.
+ This project aims to refine backend development skills, explore structured API design, and establish a foundation for future full-stack enhancements.
 
-This project serves as both a portfolio demonstration and a foundation for a potential full-stack productivity app. It includes basic CRUD functionality and is structured for easy expansion into more advanced use cases.
-
----
-
-## Features
-
-- `GET /todos` – Retrieve all todos  
-- `POST /todos` – Create a new todo  
-- Input validation with Pydantic  
-- Interactive API documentation at `/docs` (Swagger UI)
-This is the skeleton of a full productivity system — or maybe just a to-do list.  
-Depends how far the madness goes.
-
-
----
-
-
+-----------------------------------
 
 ## Tech Stack
 
-- Python 3.x  
-- FastAPI  
-- Uvicorn  
-- Pydantic  
+- **FastAPI** – Modern Python web framework
+- **Pydantic** – Data validation and management
+- **pytest** – Testing framework
+- **TestClient** – HTTP request simulation for testing
+- **Uvicorn** – ASGI web server for running the API
 
----
+-----------------------------------
 
-## Setup Instructions
+## Running Locally
 
-1. Create and activate a virtual environment:
-   ```bash
-   python3 -m venv venv
-   source venv/bin/activate
-   ```
+**1. Clone the repository**
 
-2. Install dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
+```bash
+git clone https://github.com/sakran21/task_manager_api.git
+cd task_manager_api
 
-3. Run the server:
-   ```bash
-   uvicorn main:app --reload
-   ```
 
-4. Visit:
-   - `http://127.0.0.1:8000` — API root  
-   - `http://127.0.0.1:8000/docs` — interactive API docs
+**2. Activate the virtual environment
+source venv/bin/activate
 
----
+**3. Install required packages
+pip install -r requirements.txt
+
+**4.Launch the development server
+uvicorn main:app --reload
+
+ 
+**5Access the interactive API documentation**
+Swagger UI: http://127.0.0.1:8000/docs
+ReDoc UI: http://127.0.0.1:8000/redoc
+
+Method      Endpoint         Description             
+GET        `/todos`          Retrieve all todos      
+GET        `/todos/{id}`     Retrieve a todo by ID   
+POST       `/todos`          Create a new todo       
+PUT        `/todos/{id}`     Update an existing todo 
+DELETE     `/todos/{id}`     Delete a todo by ID     
+
+-----------------------------------
+Example: Create a new todo:
+
+POST /todos
+{
+  "title": "Take out trash",
+  "completed": false
+}
+-----------------------------------
+Example: Update a todo
+
+PUT /todos/3
+{
+  "id": 3,
+  "title": "Recycle plastics",
+  "completed": true
+}
+-----------------------------------
+
+Test Coverage: 
+
+run automated tests with: 
+ python -m pytest
+
+Included tests:
+
+Coverage for all CRUD endpoints (GET, POST, PUT, DELETE)
+
+Valid and invalid scenarios
+
+6 test cases in total using TestClient
+------------------------------------
+Future Improvements
+Integration of persistent storage (SQLite, PostgreSQL)
+
+User authentication and authorization
+
+Frontend implementation (React or similar frameworks)
+
+Docker containerization for easier deployment
+
+Advanced task management features (tags, deadlines, priority)
+
+
+
+
+
+
+-----------------------------------
 
 ## License
 
-This project is currently licensed under the MIT License.  
+This project is currently licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
 Note: This may be updated in the future if the project evolves toward commercial distribution.
 
 ---
