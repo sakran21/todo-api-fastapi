@@ -2,6 +2,10 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 from fastapi import HTTPException
 from fastapi import status
+from typing import List
+from datetime import datetime, timezone
+import pandas as pd
+
 
 
 
@@ -30,7 +34,9 @@ def create_todo(todo: Todo):
     new_todo = {
         "id": len(Todos) + 1,
         "title": todo.title,
-        "completed": todo.completed
+        "created_at": datetime.now(timezone.utc) if todo.completed else None,
+        "completed_at": None,
+        "completed": False
     }
     Todos.append(new_todo)
     return new_todo
@@ -51,15 +57,62 @@ def delete_todo(todo_id: int):
             return
     raise HTTPException(status_code=404, detail="Todo not found")
 
-class Todo(BaseModel):
-    id:int
-    title: str
-    completed: bool
 
-@app.put("/todos/{Todos_id}")
+@app.put("/todos/{todo_id}")
 def update_todo(todo_id: int, updated_todo: Todo):
     for i, todo in enumerate(Todos):
         if todo["id"]==todo_id:
-            Todos[i] = updated_todo.dict()    
-            return Todos[i]
-    raise HTTPException(status_code=404,details="Todo not found!")    
+            todo["title"] = updated_todo.title
+            todo["completed"] = updated_todo.completed
+            if updated_todo.completed:
+                todo["completed_at"]= datetime.now(timezone.utc)   
+            return todo
+    raise HTTPException(status_code=404,detail="Todo not found!")    
+
+@app.get("/analytics/summary")
+def analytics_summary():
+    if not Todos:
+        return {
+        "total":0,
+        "completed":0,
+        "completed_rate":0.0,
+        "avg_completion_seconds":None,
+    }
+
+
+    
+    df = pd.DataFrame(Todos)
+
+    needed_cols = ["completed", "created_at","completed_at"]
+
+    for col in needed_cols:
+        if col not in df.columns:
+            df[col]=None
+
+    df["completed"] = df["completed"].fillna(False).astype(bool)        
+
+    total = int(len(df))
+    completed = int(df["completed"].sum())
+    completion_rate= float(completed/total)
+
+    completed_df = df[df["completed"]==True].copy()
+
+    if len(completed_df)==0:
+        avg_seconds = None
+    else:
+        completed_df["created_at"]=pd.to_datetime(completed_df["created_at"],utc=True, errors="coerce")
+        completed_df["completed_at"]=pd.to_datetime(completed_df["completed_at"], utc = True, errors="coerce")
+        
+        completed_df = completed_df.dropna(subset=["created_at","completed_at"])
+        if len(completed_df)==0:
+            avg_seconds=None
+        else:
+             
+             durations=(completed_df["completed_at"]- completed_df["created_at"]).dt.total_seconds()
+             avg_seconds=float(durations.mean())
+                
+    return{"total":total,
+           "completed":completed,
+           "completion_rate": completion_rate,
+           "avg_completion_seconds": avg_seconds,
+           }    
