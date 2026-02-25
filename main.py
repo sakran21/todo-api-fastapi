@@ -16,13 +16,25 @@ class Todo(BaseModel):
 app = FastAPI()
 @app.get("/")       #visit decorators at a later time to learn more
 def read_root():
-    return {"message": "Live!"} 
+    return {"message": "Task Manager API", "endpoints":[
+        "/todos", "/todos/{id}", "/analytics/summary"
+    ]} 
 
 
 Todos = [
     {"id": 1, "title": "Buy groceries", "completed": False},
     {"id": 2, "title": "Clean the house", "completed": True},
 ] 
+
+now = datetime.now((timezone.utc))
+
+for todo in Todos:
+    if "created_at" not in todo:
+        todo["created_at"]=now
+    if "completed_at" not in todo:
+        if todo["completed"]: todo["completed_at"]=now
+        else: todo["completed_at"]=None 
+
 
 @app.get ("/todos")
 def get_todos():
@@ -31,12 +43,13 @@ def get_todos():
 
 @app.post("/todos", status_code=201)
 def create_todo(todo: Todo):
+    now = datetime.now((timezone.utc))
     new_todo = {
         "id": len(Todos) + 1,
         "title": todo.title,
-        "created_at": datetime.now(timezone.utc) if todo.completed else None,
-        "completed_at": None,
-        "completed": False
+        "created_at": now,
+        "completed_at": now if todo.completed else None,
+        "completed": todo.completed
     }
     Todos.append(new_todo)
     return new_todo
@@ -66,6 +79,7 @@ def update_todo(todo_id: int, updated_todo: Todo):
             todo["completed"] = updated_todo.completed
             if updated_todo.completed:
                 todo["completed_at"]= datetime.now(timezone.utc)   
+            else:todo["completed_at"] = None    
             return todo
     raise HTTPException(status_code=404,detail="Todo not found!")    
 
@@ -93,7 +107,11 @@ def analytics_summary():
 
     total = int(len(df))
     completed = int(df["completed"].sum())
+
     completion_rate= float(completed/total)
+    completion_rate= round(completion_rate,3)
+
+
 
     completed_df = df[df["completed"]==True].copy()
 
@@ -110,6 +128,7 @@ def analytics_summary():
              
              durations=(completed_df["completed_at"]- completed_df["created_at"]).dt.total_seconds()
              avg_seconds=float(durations.mean())
+             avg_seconds=round(avg_seconds,2)
                 
     return{"total":total,
            "completed":completed,
