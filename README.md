@@ -1,7 +1,6 @@
 # Task Manager API (FastAPI)
 
-A lightweight RESTful API built with FastAPI for managing tasks, complete with automated testing.
- This project aims to refine backend development skills, explore structured API design, and establish a foundation for future full-stack enhancements.
+A lightweight RESTful API built with FastAPI for managing tasks, including basic analytics such as completion rate and average completion time. This project demonstrates backend API design, data handling, and simple data analysis.
 
 -----------------------------------
 
@@ -12,6 +11,8 @@ A lightweight RESTful API built with FastAPI for managing tasks, complete with a
 - **pytest** – Testing framework
 - **TestClient** – HTTP request simulation for testing
 - **Uvicorn** – ASGI web server for running the API
+- **Pandas** – Data analysis
+
 
 -----------------------------------
 
@@ -38,12 +39,14 @@ uvicorn main:app --reload
 Swagger UI: http://127.0.0.1:8000/docs
 ReDoc UI: http://127.0.0.1:8000/redoc
 
-Method      Endpoint         Description             
-GET        `/todos`          Retrieve all todos      
-GET        `/todos/{id}`     Retrieve a todo by ID   
-POST       `/todos`          Create a new todo       
-PUT        `/todos/{id}`     Update an existing todo 
-DELETE     `/todos/{id}`     Delete a todo by ID     
+Method      Endpoint             Description        
+Get        `/`                   API overview     
+GET        `/todos`              Retrieve all todos      
+GET        `/todos/{id}`         Retrieve a todo by ID   
+POST       `/todos`              Create a new todo       
+PUT        `/todos/{id}`         Update an existing todo 
+DELETE     `/todos/{id}`         Delete a todo by ID     
+GET        `/analytics/summary`  Get analytics (completion rate and average completion time)
 
 -----------------------------------
 Example: Create a new todo:
@@ -64,6 +67,21 @@ PUT /todos/3
 }
 -----------------------------------
 
+Example: Analytics
+
+GET /analytics/summary
+
+Response:
+
+{
+  "total": 6,
+  "completed": 4,
+  "completion_rate": 0.667,
+  "avg_completion_seconds": 15.95
+}
+-----------------------------------
+
+
 Test Coverage: 
 
 run automated tests with: 
@@ -71,7 +89,7 @@ run automated tests with:
 
 Included tests:
 
-Coverage for all CRUD endpoints (GET, POST, PUT, DELETE)
+Coverage for CRUD endpoints (GET, POST, PUT, DELETE)
 
 Valid and invalid scenarios
 
