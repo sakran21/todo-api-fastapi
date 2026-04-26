@@ -5,6 +5,12 @@ from fastapi import status
 from typing import List
 from datetime import datetime, timezone
 import pandas as pd
+import random
+from datetime import timedelta
+from sklearn.linear_model import LogisticRegression
+from fastapi.responses import StreamingResponse
+import io
+import csv
 
 
 
@@ -22,11 +28,56 @@ def read_root():
 
 
 Todos = [
-    {"id": 1, "title": "Buy groceries", "completed": False},
-    {"id": 2, "title": "Clean the house", "completed": True},
-] 
+    {
+        "id": 1,
+        "title": "Buy groceries",
+        "created_at": datetime(2026, 4, 1, 10, 0, 0, tzinfo=timezone.utc),
+        "completed_at": None,
+        "completed": False
+    },
+    {
+        "id": 2,
+        "title": "Clean the house",
+        "created_at": datetime(2026, 4, 2, 9, 0, 0, tzinfo=timezone.utc),
+        "completed_at": datetime(2026, 4, 2, 12, 0, 0, tzinfo=timezone.utc),
+        "completed": True
+    },
+]
+
+model=None
 
 now = datetime.now((timezone.utc))
+
+@app.post("/ml/train")
+def train_model():
+    global model
+    x=[]
+    y=[]
+    now = datetime.now(timezone.utc)
+
+    for todo in Todos:
+        if "created_at" not in todo:
+            continue
+        created_at =todo["created_at"]
+
+        if created_at is None:
+            continue
+
+        age=(now-created_at).total_seconds()
+
+        x.append([age])
+        y.append(1 if todo["completed"] else 0)
+
+    if len(x)<5:
+        return {"error": "not enough data"}
+
+    model = LogisticRegression()
+    model.fit(x,y)
+
+    return {
+        "message": "model trained",
+        "samples": len(x)
+    }    
 
 for todo in Todos:
     if "created_at" not in todo:
@@ -135,3 +186,53 @@ def analytics_summary():
            "completion_rate": completion_rate,
            "avg_completion_seconds": avg_seconds,
            }    
+
+
+@app.post("/ml/generate")
+def generate_data(n: int=100):
+    for _ in range(n):
+        now = datetime.now(timezone.utc)
+        created_at=now - timedelta(seconds=random.randint(10,500))
+        completed=random.choice([True,False])
+        if completed:
+            completed_at=created_at+timedelta(seconds=random.randint(5,300))
+        
+        else: completed_at=None
+
+        new_todo ={
+            "id": len(Todos)+1,
+            "title": f"generated task {len(Todos)+1}",
+            "created_at": created_at,
+            "completed_at": completed_at,
+            "completed":completed
+
+        }
+        Todos.append(new_todo)
+    return {"message": f"{n} todos generated", "total": len(Todos)}    
+
+
+@app.post("/ml/predict")
+def predict_completion(age_seconds: float):
+    global model
+
+    if model is None:
+        return {"error": "model not trained"}
+    
+    prediction =model.predict([[age_seconds]])[0]
+    probability = model.predict_proba([[age_seconds]])[0][1]
+
+    return {
+        "predicted_completed": bool(prediction),"completion_probability":round(float(probability),3)
+    }
+
+@app.get("/export/csv")
+def export_csv():
+    output = io.StringIO()
+    writer = csv.DictWriter(output, fieldnames=["id","title","created_at","completed_at","completed"])
+    writer.writeheader()
+
+    for todo in Todos:
+        writer.writerow(todo)
+
+    output.seek(0)
+    return StreamingResponse(output, media_type="text/csv", headers={"Content-Disposition": "attachment; filename=todos.csv"})
