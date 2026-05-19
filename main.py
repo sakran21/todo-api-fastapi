@@ -187,28 +187,47 @@ def analytics_summary():
            "avg_completion_seconds": avg_seconds,
            }    
 
-
 @app.post("/ml/generate")
-def generate_data(n: int=100):
-    for _ in range(n):
-        now = datetime.now(timezone.utc)
-        created_at=now - timedelta(seconds=random.randint(10,500))
-        completed=random.choice([True,False])
-        if completed:
-            completed_at=created_at+timedelta(seconds=random.randint(5,300))
-        
-        else: completed_at=None
+def generatedata(n: int = 100):
+    now = datetime.now(timezone.utc)
 
-        new_todo ={
-            "id": len(Todos)+1,
-            "title": f"generated task {len(Todos)+1}",
+    for _ in range(n):
+        task_type = random.choices(
+            ["routine", "periodic", "milestone"],
+            weights=[70, 25, 5],
+            k=1
+        )[0]
+
+        created_at = now - timedelta(days=random.randint(0, 365))
+
+        if task_type == "routine":
+            duration = timedelta(hours=random.randint(1, 12))
+        elif task_type == "periodic":
+            duration = timedelta(days=random.randint(1, 7))
+        else:
+            duration = timedelta(days=random.randint(90, 270))
+
+        expected_finish = created_at + duration
+
+        if expected_finish > now:
+            completed = False
+            completed_at = None
+        else:
+            completed = random.random() < 0.85
+            completed_at = expected_finish if completed else None
+
+        new_todo = {
+            "id": len(Todos) + 1,
+            "title": f"{task_type} task {len(Todos) + 1}",
             "created_at": created_at,
             "completed_at": completed_at,
-            "completed":completed
-
+            "completed": completed
         }
+
         Todos.append(new_todo)
-    return {"message": f"{n} todos generated", "total": len(Todos)}    
+
+    return {"message": f"{n} todos generated", "total": len(Todos)}
+
 
 
 @app.post("/ml/predict")
