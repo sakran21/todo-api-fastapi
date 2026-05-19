@@ -2,10 +2,14 @@ from fastapi import FastAPI
 from pydantic import BaseModel
 from fastapi import HTTPException
 from fastapi import status
+from fastapi import Depends
+from sqlmodel import SQLModel, Field, create_engine, Session, select
 from typing import List
 from datetime import datetime, timezone
 import pandas as pd
 import random
+from contextlib import asynccontextmanager
+
 from datetime import timedelta
 from sklearn.linear_model import LogisticRegression
 from fastapi.responses import StreamingResponse
@@ -16,24 +20,32 @@ import csv
 
 
 class Todo(BaseModel):
+
+
     title: str
     completed:bool = False
 
-app = FastAPI()
-@app.get("/")       #visit decorators at a later time to learn more
-def read_root():
-    return {"message": "Task Manager API", "endpoints":[
-        "/todos", "/todos/{id}", "/analytics/summary"
-    ]} 
+sqlite_url ="sqlite:///todos.db"
+engine = create_engine(sqlite_url, echo=True)
 
+def get_session():
+    with Session(engine) as session:
+        yield session
+
+class TodoDB (SQLModel, table=True):
+        id: int | None = Field(default=None, primary_key=True)
+        title: str
+        created_at: datetime = Field(default_factory= lambda:datetime.now(timezone.utc))
+        completed_at: datetime | None=None
+        completed: bool= False
 
 Todos = [
-    {
-        "id": 1,
-        "title": "Buy groceries",
-        "created_at": datetime(2026, 4, 1, 10, 0, 0, tzinfo=timezone.utc),
-        "completed_at": None,
-        "completed": False
+    { 
+      "id": 1,
+      "title": "Buy groceries",
+      "created_at": datetime(2026, 4, 1, 10, 0, 0, tzinfo=timezone.utc),
+      "completed_at": None,
+      "completed": False
     },
     {
         "id": 2,
@@ -42,7 +54,24 @@ Todos = [
         "completed_at": datetime(2026, 4, 2, 12, 0, 0, tzinfo=timezone.utc),
         "completed": True
     },
-]
+    ]
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    SQLModel.metadata.create_all(engine)
+    yield
+
+app = FastAPI(lifespan=lifespan)
+
+
+@app.get("/")       #visit decorators at a later time to learn more
+def read_root():
+    return {"message": "Task Manager API", "endpoints":[
+        "/todos", "/todos/{id}", "/analytics/summary"
+    ]} 
+
+
+
 
 model=None
 
@@ -88,51 +117,60 @@ for todo in Todos:
 
 
 @app.get ("/todos")
-def get_todos():
-    return Todos
+def get_todos(session: Session = Depends(get_session)):
+    todos= session.exec(select(TodoDB)).all()
+    return todos
 
 
 @app.post("/todos", status_code=201)
-def create_todo(todo: Todo):
+def create_todo(todo: Todo, session: Session = Depends(get_session)):
     now = datetime.now((timezone.utc))
-    new_todo = {
-        "id": len(Todos) + 1,
-        "title": todo.title,
-        "created_at": now,
-        "completed_at": now if todo.completed else None,
-        "completed": todo.completed
-    }
-    Todos.append(new_todo)
+    new_todo = TodoDB(
+        title=todo.title,
+        created_at=now,
+        completed_at=now if todo.completed else None,
+        completed=todo.completed
+    )
+    session.add(new_todo)
+    session.commit()
+    session.refresh(new_todo)
     return new_todo
 
 
 @app.get("/todos/{todo_id}")
-def get_todo(todo_id: int):
-    for todo in Todos:
-        if todo["id"] == todo_id:
-            return todo
-    raise HTTPException(status_code=404, detail="Todo not found")
+def get_todo(todo_id: int, session: Session=Depends(get_session)):
+    todo=session.get(TodoDB,todo_id)
+    if todo is None:
+        raise HTTPException(status_code=404, detail="Todo not found")
+    return todo
 
 @app.delete("/todos/{todo_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_todo(todo_id: int):
-    for i, todo in enumerate(Todos):
-        if todo["id"] == todo_id:
-            Todos.pop(i)
-            return
-    raise HTTPException(status_code=404, detail="Todo not found")
+def delete_todo(todo_id: int, session: Session=Depends(get_session)):
+    todo = session.get(TodoDB, todo_id)
+    if todo is None:
+        raise HTTPException(status_code=404, detail="Todo not found")
+    
+    session.delete(todo)
+    session.commit()
+    return{"message": "Todo deleted"}
 
 
 @app.put("/todos/{todo_id}")
-def update_todo(todo_id: int, updated_todo: Todo):
-    for i, todo in enumerate(Todos):
-        if todo["id"]==todo_id:
-            todo["title"] = updated_todo.title
-            todo["completed"] = updated_todo.completed
-            if updated_todo.completed:
-                todo["completed_at"]= datetime.now(timezone.utc)   
-            else:todo["completed_at"] = None    
-            return todo
-    raise HTTPException(status_code=404,detail="Todo not found!")    
+def update_todo(todo_id: int, updated_todo: Todo, session: Session=Depends(get_session)):
+    todo=session.get(TodoDB,todo_id)
+    if todo is None:
+        raise HTTPException(status_code=404,detail="Todo not found!")    
+    
+    todo.title=updated_todo.title
+    todo.completed=updated_todo.completed
+    if updated_todo.completed:
+        todo.completed_at=datetime.now(timezone.utc)
+    else:
+        todo.completed_at=None
+    session.add(todo)
+    session.commit()
+    session.refresh(todo)
+    return todo        
 
 @app.get("/analytics/summary")
 def analytics_summary():
